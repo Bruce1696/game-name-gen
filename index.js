@@ -63,10 +63,12 @@ let currentTeams = null;
 let lockedPlayers = new Set();
 let swapMode = false;
 let selectedForSwap = null;
+let customPlayers = [];
 
 // ===== STORAGE KEYS =====
 const STORAGE_KEY_SELECTED = "teamgen_selected";
 const STORAGE_KEY_LOCKED = "teamgen_locked";
+const STORAGE_KEY_CUSTOM = "teamgen_custom_players";
 
 // ===== DOM ELEMENTS =====
 const playersList = document.getElementById("playersList");
@@ -77,6 +79,16 @@ const copyBtn = document.getElementById("copyBtn");
 const swapBtn = document.getElementById("swapBtn");
 const clearBtn = document.getElementById("clearBtn");
 const teamsContainer = document.getElementById("teamsContainer");
+const newPlayerInput = document.getElementById("newPlayerInput");
+const addPlayerBtn = document.getElementById("addPlayerBtn");
+
+/**
+ * Get the full list of available players (built-in + custom-added)
+ * @returns {Array} - Array of player names
+ */
+function getAllPlayers() {
+  return [...AVAILABLE_PLAYERS, ...customPlayers];
+}
 
 // ===== FISHER-YATES SHUFFLE =====
 /**
@@ -239,6 +251,23 @@ swapBtn.addEventListener("click", () => {
 });
 
 /**
+ * Add Player button click
+ */
+addPlayerBtn.addEventListener("click", () => {
+  addPlayer(newPlayerInput.value);
+});
+
+/**
+ * Add player on Enter key press
+ */
+newPlayerInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    addPlayer(newPlayerInput.value);
+  }
+});
+
+/**
  * Clear All button click
  */
 clearBtn.addEventListener("click", () => {
@@ -272,6 +301,39 @@ clearBtn.addEventListener("click", () => {
 
 // ===== HELPER FUNCTIONS =====
 /**
+ * Add a new player name to the list
+ * @param {string} rawName - Player name to add
+ */
+function addPlayer(rawName) {
+  const name = rawName.trim();
+
+  if (!name) {
+    showToast("Enter a name to add", false);
+    return;
+  }
+
+  const isDuplicate = getAllPlayers().some(p => p.toLowerCase() === name.toLowerCase());
+  if (isDuplicate) {
+    showToast(`${name} is already in the list`, false);
+    return;
+  }
+
+  customPlayers.push(name);
+  localStorage.setItem(STORAGE_KEY_CUSTOM, JSON.stringify(customPlayers));
+
+  renderPlayerCheckboxes();
+
+  const checkbox = document.querySelector(`input[value="${name}"]`);
+  if (checkbox) checkbox.checked = true;
+
+  updatePlayerCount();
+  localStorage.setItem(STORAGE_KEY_SELECTED, JSON.stringify(getSelectedPlayers()));
+
+  newPlayerInput.value = "";
+  showToast(`${name} added! ✅`);
+}
+
+/**
  * Get selected players from checkboxes
  * @returns {Array} - Array of selected player names
  */
@@ -296,8 +358,8 @@ function updatePlayerCount() {
  */
 function renderPlayerCheckboxes() {
   const selectedPlayers = new Set(getSelectedPlayers());
-  
-  playersList.innerHTML = AVAILABLE_PLAYERS.map(player => `
+
+  playersList.innerHTML = getAllPlayers().map(player => `
     <div class="player-checkbox">
       <input 
         type="checkbox" 
@@ -582,7 +644,16 @@ window.generateTeamsFromArray = function(playersArray) {
 function loadFromLocalStorage() {
   const savedSelected = localStorage.getItem(STORAGE_KEY_SELECTED);
   const savedLocked = localStorage.getItem(STORAGE_KEY_LOCKED);
-  
+  const savedCustom = localStorage.getItem(STORAGE_KEY_CUSTOM);
+
+  if (savedCustom) {
+    try {
+      customPlayers = JSON.parse(savedCustom);
+    } catch (e) {
+      customPlayers = [];
+    }
+  }
+
   renderPlayerCheckboxes();
   
   if (savedSelected) {
