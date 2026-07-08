@@ -568,30 +568,6 @@
             background: #27ae60;
         }
 
-        /* ===== SWAP MODE ===== */
-        .swap-mode-active .player-item {
-            cursor: pointer;
-        }
-
-        .player-item.swap-selected {
-            background: #fff3cd;
-            border-left-color: #f39c12;
-        }
-
-        .swap-indicator {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #f39c12;
-            color: #ffffff;
-            padding: 12px 20px;
-            border-radius: 10px;
-            font-weight: 600;
-            animation: slideDown 0.3s ease-out;
-            z-index: 999;
-        }
-
         /* ===== EMPTY STATE ===== */
         .empty-state {
             text-align: center;
@@ -645,8 +621,6 @@
         <div class="button-group">
             <button id="generateBtn" class="btn-primary">Generate Teams</button>
             <button id="regenerateBtn" class="btn-secondary" disabled>Regenerate Teams</button>
-            <button id="copyBtn" class="btn-tertiary" disabled>Copy Teams</button>
-            <button id="swapBtn" class="btn-secondary" disabled>Swap Mode</button>
             <button id="clearBtn" class="btn-secondary">Clear All</button>
         </div>
 

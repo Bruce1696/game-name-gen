@@ -63,8 +63,6 @@ const AVAILABLE_PLAYERS = [
 // ===== STATE =====
 let currentTeams = null;
 let lockedPlayers = new Set();
-let swapMode = false;
-let selectedForSwap = null;
 let customPlayers = [];
 
 // ===== STORAGE KEYS =====
@@ -78,8 +76,6 @@ const playersList = document.getElementById("playersList");
 const playerCountDisplay = document.getElementById("playerCountDisplay");
 const generateBtn = document.getElementById("generateBtn");
 const regenerateBtn = document.getElementById("regenerateBtn");
-const copyBtn = document.getElementById("copyBtn");
-const swapBtn = document.getElementById("swapBtn");
 const clearBtn = document.getElementById("clearBtn");
 const teamsContainer = document.getElementById("teamsContainer");
 const newPlayerInput = document.getElementById("newPlayerInput");
@@ -202,8 +198,6 @@ generateBtn.addEventListener("click", () => {
     
     // Update button states
     regenerateBtn.disabled = false;
-    copyBtn.disabled = false;
-    swapBtn.disabled = false;
   }
 });
 
@@ -221,48 +215,12 @@ regenerateBtn.addEventListener("click", () => {
 });
 
 /**
- * Copy Teams button click
- */
-copyBtn.addEventListener("click", () => {
-  if (!currentTeams) return;
-
-  const fullText = currentTeams.teams
-    .map(team => `${team.emoji} ${team.name}\n${team.players.join("\n")}`)
-    .join("\n\n");
-
-  navigator.clipboard.writeText(fullText).then(() => {
-    showToast("Teams copied to clipboard! 📋");
-  }).catch(() => {
-    showToast("Failed to copy teams", false);
-  });
-});
-
-/**
  * Team count input change
  */
 teamCountInput.addEventListener("change", () => {
   const count = getTeamCount();
   teamCountInput.value = count;
   localStorage.setItem(STORAGE_KEY_TEAM_COUNT, String(count));
-});
-
-/**
- * Swap Mode button click
- */
-swapBtn.addEventListener("click", () => {
-  swapMode = !swapMode;
-  selectedForSwap = null;
-  
-  if (swapMode) {
-    swapBtn.textContent = "Exit Swap Mode";
-    swapBtn.style.background = "linear-gradient(135deg, #ffc107 0%, #ff9800 100%)";
-    showSwapIndicator();
-  } else {
-    swapBtn.textContent = "Swap Mode";
-    swapBtn.style.background = "";
-    removeSwapIndicator();
-    renderTeams();
-  }
 });
 
 /**
@@ -283,34 +241,36 @@ newPlayerInput.addEventListener("keydown", (e) => {
 });
 
 /**
- * Clear All button click
+ * Select All / Clear All button click (toggles based on current selection)
  */
 clearBtn.addEventListener("click", () => {
-  if (confirm("Unselect all players?")) {
+  if (areAllPlayersSelected()) {
+    if (!confirm("Unselect all players?")) return;
+
     document.querySelectorAll("input[name='player-checkbox']").forEach(cb => {
       cb.checked = false;
     });
     lockedPlayers.clear();
     currentTeams = null;
-    selectedForSwap = null;
-    swapMode = false;
-    
+
     // Update button states
     generateBtn.disabled = true;
     regenerateBtn.disabled = true;
-    copyBtn.disabled = true;
-    swapBtn.disabled = true;
-    
+
     playerCountDisplay.textContent = "0 players selected";
     localStorage.removeItem(STORAGE_KEY_SELECTED);
     localStorage.removeItem(STORAGE_KEY_LOCKED);
-    
+
     teamsContainer.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">📋</div>
         <p>Select player names and click "Generate Teams" to get started!</p>
       </div>
     `;
+    updateClearBtnLabel();
+  } else {
+    selectAllPlayers();
+    localStorage.setItem(STORAGE_KEY_SELECTED, JSON.stringify(getSelectedPlayers()));
   }
 });
 
@@ -363,9 +323,27 @@ function getSelectedPlayers() {
 function updatePlayerCount() {
   const players = getSelectedPlayers();
   playerCountDisplay.textContent = `${players.length} player${players.length !== 1 ? 's' : ''} selected`;
-  
+
   // Enable/disable generate button
   generateBtn.disabled = players.length === 0;
+
+  updateClearBtnLabel();
+}
+
+/**
+ * Check whether every available player is currently selected
+ * @returns {boolean}
+ */
+function areAllPlayersSelected() {
+  const total = getAllPlayers().length;
+  return total > 0 && getSelectedPlayers().length === total;
+}
+
+/**
+ * Update the Select All / Clear All button label to reflect current selection
+ */
+function updateClearBtnLabel() {
+  clearBtn.textContent = areAllPlayersSelected() ? "Clear All" : "Select All";
 }
 
 /**
@@ -416,7 +394,6 @@ function renderTeams() {
               <button class="player-btn lock-btn" data-player="${player}" title="Lock/Unlock player">
                 ${lockedPlayers.has(player) ? '🔓' : '🔒'}
               </button>
-              ${swapMode ? `<button class="player-btn swap-btn" data-player="${player}" title="Select to swap">Swap</button>` : ''}
             </div>
           </li>
         `).join('')}
@@ -442,25 +419,6 @@ function attachDynamicListeners() {
       toggleLockPlayer(player);
     });
   });
-  
-  // Swap button listeners
-  if (swapMode) {
-    document.querySelectorAll(".swap-btn").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const player = btn.dataset.player;
-        handleSwapSelection(player);
-      });
-    });
-    
-    document.querySelectorAll(".player-item").forEach(item => {
-      item.addEventListener("click", (e) => {
-        if (e.target.closest(".player-btn")) return;
-        const player = item.dataset.player;
-        handleSwapSelection(player);
-      });
-    });
-  }
 }
 
 /**
@@ -479,68 +437,6 @@ function toggleLockPlayer(player) {
   
   renderTeams();
   showToast(`${player} ${lockedPlayers.has(player) ? 'locked' : 'unlocked'} 🔒`);
-}
-
-/**
- * Handle player selection for swapping
- * @param {string} player - Player name
- */
-function handleSwapSelection(player) {
-  if (selectedForSwap === null) {
-    // First player selected
-    selectedForSwap = player;
-    document.querySelector(`[data-player="${player}"]`).classList.add("swap-selected");
-    showToast(`${player} selected. Click another player to swap! 🔄`);
-  } else if (selectedForSwap === player) {
-    // Deselect
-    selectedForSwap = null;
-    document.querySelector(`[data-player="${player}"]`).classList.remove("swap-selected");
-    showToast("Selection cleared");
-  } else {
-    // Swap the players
-    swapPlayers(selectedForSwap, player);
-    selectedForSwap = null;
-  }
-}
-
-/**
- * Swap two players between teams
- * @param {string} player1 - First player name
- * @param {string} player2 - Second player name
- */
-function swapPlayers(player1, player2) {
-  if (!currentTeams) return;
-
-  const team1 = currentTeams.teams.find(t => t.players.includes(player1));
-  const team2 = currentTeams.teams.find(t => t.players.includes(player2));
-  if (!team1 || !team2 || team1 === team2) return;
-
-  team1.players = team1.players.filter(p => p !== player1);
-  team2.players = team2.players.filter(p => p !== player2);
-  team1.players.push(player2);
-  team2.players.push(player1);
-
-  renderTeams();
-  showToast(`Swapped ${player1} and ${player2}! 🔄`);
-}
-
-/**
- * Show swap mode indicator
- */
-function showSwapIndicator() {
-  const indicator = document.createElement("div");
-  indicator.className = "swap-indicator";
-  indicator.id = "swap-indicator";
-  indicator.textContent = "🔄 Swap Mode: Click a player to select, then click another to swap";
-  document.body.appendChild(indicator);
-}
-
-/**
- * Remove swap mode indicator
- */
-function removeSwapIndicator() {
-  const indicator = document.getElementById("swap-indicator");
-  if (indicator) indicator.remove();
 }
 
 /**
