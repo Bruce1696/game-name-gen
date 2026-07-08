@@ -24,6 +24,8 @@ const TEAM_NAMES = [
 
 const TEAM_EMOJIS = ["⚡", "🔥", "🐺", "🦅", "🐉", "🦈", "🚀", "🌪", "🛡", "💎", "🐻", "⭐", "👑", "☄️", "🦁", "❄️", "🌋", "🤖", "🔥", "👾"];
 
+const TEAM_COLORS = ["#3498db", "#e74c3c", "#1abc9c", "#f39c12", "#9b59b6", "#2ecc71", "#e67e22", "#34495e", "#16a085", "#d35400", "#8e44ad", "#27ae60", "#c0392b", "#2980b9", "#f1c40f", "#7f8c8d", "#ff5722", "#795548", "#009688", "#673ab7"];
+
 // ===== AVAILABLE PLAYERS =====
 const AVAILABLE_PLAYERS = [
   "Abhishek Arigela",
@@ -69,6 +71,7 @@ let customPlayers = [];
 const STORAGE_KEY_SELECTED = "teamgen_selected";
 const STORAGE_KEY_LOCKED = "teamgen_locked";
 const STORAGE_KEY_CUSTOM = "teamgen_custom_players";
+const STORAGE_KEY_TEAM_COUNT = "teamgen_team_count";
 
 // ===== DOM ELEMENTS =====
 const playersList = document.getElementById("playersList");
@@ -81,6 +84,7 @@ const clearBtn = document.getElementById("clearBtn");
 const teamsContainer = document.getElementById("teamsContainer");
 const newPlayerInput = document.getElementById("newPlayerInput");
 const addPlayerBtn = document.getElementById("addPlayerBtn");
+const teamCountInput = document.getElementById("teamCountInput");
 
 /**
  * Get the full list of available players (built-in + custom-added)
@@ -107,11 +111,22 @@ function fisherYatesShuffle(array) {
 
 // ===== TEAM GENERATION =====
 /**
- * Generates two balanced teams with random names
- * @param {Array} players - List of player names
- * @returns {Object} - Object with teamA and teamB
+ * Reads and clamps the desired number of teams from the input
+ * @returns {number} - Number of teams between 2 and TEAM_NAMES.length
  */
-function generateTeams(players) {
+function getTeamCount() {
+  const raw = parseInt(teamCountInput.value, 10);
+  const count = Number.isNaN(raw) ? 2 : raw;
+  return Math.max(2, Math.min(count, TEAM_NAMES.length));
+}
+
+/**
+ * Generates N balanced teams with random names
+ * @param {Array} players - List of player names
+ * @param {number} numTeams - Number of teams to create
+ * @returns {Object} - Object with a `teams` array
+ */
+function generateTeams(players, numTeams) {
   if (players.length === 0) return null;
 
   // Separate locked and unlocked players
@@ -121,51 +136,43 @@ function generateTeams(players) {
   // Shuffle only unlocked players
   const shuffledUnlocked = fisherYatesShuffle(unlockedPlayersList);
 
-  // Split unlocked players into two groups
-  const midpoint = Math.ceil(shuffledUnlocked.length / 2);
-  let teamAPlayers = shuffledUnlocked.slice(0, midpoint);
-  let teamBPlayers = shuffledUnlocked.slice(midpoint);
-
-  // Distribute locked players (alternating between teams)
+  // Distribute players round-robin across the teams
+  const groups = Array.from({ length: numTeams }, () => []);
+  shuffledUnlocked.forEach((player, index) => {
+    groups[index % numTeams].push(player);
+  });
   lockedPlayersList.forEach((player, index) => {
-    if (index % 2 === 0) {
-      teamAPlayers.push(player);
-    } else {
-      teamBPlayers.push(player);
-    }
+    groups[index % numTeams].push(player);
   });
 
   // Get unique team names
-  const selectedNames = getUniqueTeamNames(2);
-  
+  const selectedNames = getUniqueTeamNames(numTeams);
+
   return {
-    teamA: {
-      name: selectedNames[0].name,
-      emoji: selectedNames[0].emoji,
-      players: teamAPlayers
-    },
-    teamB: {
-      name: selectedNames[1].name,
-      emoji: selectedNames[1].emoji,
-      players: teamBPlayers
-    }
+    teams: groups.map((teamPlayers, index) => ({
+      name: selectedNames[index].name,
+      emoji: selectedNames[index].emoji,
+      color: selectedNames[index].color,
+      players: teamPlayers
+    }))
   };
 }
 
 /**
- * Gets unique random team names with emojis
+ * Gets unique random team names with emojis and colors
  * @param {number} count - Number of unique names needed
- * @returns {Array} - Array of {name, emoji} objects
+ * @returns {Array} - Array of {name, emoji, color} objects
  */
 function getUniqueTeamNames(count) {
   const indices = new Set();
   while (indices.size < count) {
     indices.add(Math.floor(Math.random() * TEAM_NAMES.length));
   }
-  
+
   return Array.from(indices).map(i => ({
     name: TEAM_NAMES[i],
-    emoji: TEAM_EMOJIS[i]
+    emoji: TEAM_EMOJIS[i],
+    color: TEAM_COLORS[i]
   }));
 }
 
@@ -186,8 +193,8 @@ document.addEventListener("change", (e) => {
 generateBtn.addEventListener("click", () => {
   const players = getSelectedPlayers();
   if (players.length === 0) return;
-  
-  currentTeams = generateTeams(players);
+
+  currentTeams = generateTeams(players, getTeamCount());
   if (currentTeams) {
     renderTeams();
     triggerConfetti();
@@ -205,7 +212,7 @@ generateBtn.addEventListener("click", () => {
  */
 regenerateBtn.addEventListener("click", () => {
   const players = getSelectedPlayers();
-  currentTeams = generateTeams(players);
+  currentTeams = generateTeams(players, getTeamCount());
   if (currentTeams) {
     renderTeams();
     triggerConfetti();
@@ -218,17 +225,25 @@ regenerateBtn.addEventListener("click", () => {
  */
 copyBtn.addEventListener("click", () => {
   if (!currentTeams) return;
-  
-  const teamAText = `${currentTeams.teamA.emoji} ${currentTeams.teamA.name}\n${currentTeams.teamA.players.join("\n")}`;
-  const teamBText = `${currentTeams.teamB.emoji} ${currentTeams.teamB.name}\n${currentTeams.teamB.players.join("\n")}`;
-  
-  const fullText = `${teamAText}\n\n${teamBText}`;
-  
+
+  const fullText = currentTeams.teams
+    .map(team => `${team.emoji} ${team.name}\n${team.players.join("\n")}`)
+    .join("\n\n");
+
   navigator.clipboard.writeText(fullText).then(() => {
     showToast("Teams copied to clipboard! 📋");
   }).catch(() => {
     showToast("Failed to copy teams", false);
   });
+});
+
+/**
+ * Team count input change
+ */
+teamCountInput.addEventListener("change", () => {
+  const count = getTeamCount();
+  teamCountInput.value = count;
+  localStorage.setItem(STORAGE_KEY_TEAM_COUNT, String(count));
 });
 
 /**
@@ -380,44 +395,18 @@ function renderPlayerCheckboxes() {
  */
 function renderTeams() {
   if (!currentTeams) return;
-  
-  const teamsHTML = `
-    <div class="team-card">
-      <div class="team-header">
-        <div class="team-icon">${currentTeams.teamA.emoji}</div>
-        <div class="team-name">${currentTeams.teamA.name}</div>
-      </div>
-      <div class="team-count">
-        ${currentTeams.teamA.players.length} players
-      </div>
-      <ul class="player-list" data-team="A">
-        ${currentTeams.teamA.players.map((player, index) => `
-          <li class="player-item ${lockedPlayers.has(player) ? 'locked' : ''}" data-player="${player}" data-index="${index}">
-            <div class="player-info">
-              <span class="player-name">${player}</span>
-              ${lockedPlayers.has(player) ? '<span class="lock-icon">🔒</span>' : ''}
-            </div>
-            <div class="player-actions">
-              <button class="player-btn lock-btn" data-player="${player}" title="Lock/Unlock player">
-                ${lockedPlayers.has(player) ? '🔓' : '🔒'}
-              </button>
-              ${swapMode ? `<button class="player-btn swap-btn" data-player="${player}" title="Select to swap">Swap</button>` : ''}
-            </div>
-          </li>
-        `).join('')}
-      </ul>
-    </div>
 
-    <div class="team-card">
+  const teamsHTML = currentTeams.teams.map((team, teamIndex) => `
+    <div class="team-card" style="--team-color: ${team.color}; animation-delay: ${0.1 * (teamIndex + 1)}s;">
       <div class="team-header">
-        <div class="team-icon">${currentTeams.teamB.emoji}</div>
-        <div class="team-name">${currentTeams.teamB.name}</div>
+        <div class="team-icon" style="animation-delay: ${0.1 * teamIndex}s;">${team.emoji}</div>
+        <div class="team-name">${team.name}</div>
       </div>
       <div class="team-count">
-        ${currentTeams.teamB.players.length} players
+        ${team.players.length} players
       </div>
-      <ul class="player-list" data-team="B">
-        ${currentTeams.teamB.players.map((player, index) => `
+      <ul class="player-list" data-team="${teamIndex}">
+        ${team.players.map((player, index) => `
           <li class="player-item ${lockedPlayers.has(player) ? 'locked' : ''}" data-player="${player}" data-index="${index}">
             <div class="player-info">
               <span class="player-name">${player}</span>
@@ -433,10 +422,10 @@ function renderTeams() {
         `).join('')}
       </ul>
     </div>
-  `;
-  
+  `).join('');
+
   teamsContainer.innerHTML = teamsHTML;
-  
+
   // Attach event listeners to dynamic elements
   attachDynamicListeners();
 }
@@ -521,26 +510,16 @@ function handleSwapSelection(player) {
  */
 function swapPlayers(player1, player2) {
   if (!currentTeams) return;
-  
-  const player1InA = currentTeams.teamA.players.includes(player1);
-  const player2InA = currentTeams.teamB.players.includes(player2);
-  
-  if (player1InA) {
-    // Remove player1 from A, remove player2 from B
-    currentTeams.teamA.players = currentTeams.teamA.players.filter(p => p !== player1);
-    currentTeams.teamB.players = currentTeams.teamB.players.filter(p => p !== player2);
-    // Add them to opposite teams
-    currentTeams.teamA.players.push(player2);
-    currentTeams.teamB.players.push(player1);
-  } else {
-    // Remove player1 from B, remove player2 from A
-    currentTeams.teamB.players = currentTeams.teamB.players.filter(p => p !== player1);
-    currentTeams.teamA.players = currentTeams.teamA.players.filter(p => p !== player2);
-    // Add them to opposite teams
-    currentTeams.teamB.players.push(player2);
-    currentTeams.teamA.players.push(player1);
-  }
-  
+
+  const team1 = currentTeams.teams.find(t => t.players.includes(player1));
+  const team2 = currentTeams.teams.find(t => t.players.includes(player2));
+  if (!team1 || !team2 || team1 === team2) return;
+
+  team1.players = team1.players.filter(p => p !== player1);
+  team2.players = team2.players.filter(p => p !== player2);
+  team1.players.push(player2);
+  team2.players.push(player1);
+
   renderTeams();
   showToast(`Swapped ${player1} and ${player2}! 🔄`);
 }
@@ -645,6 +624,11 @@ function loadFromLocalStorage() {
   const savedSelected = localStorage.getItem(STORAGE_KEY_SELECTED);
   const savedLocked = localStorage.getItem(STORAGE_KEY_LOCKED);
   const savedCustom = localStorage.getItem(STORAGE_KEY_CUSTOM);
+  const savedTeamCount = localStorage.getItem(STORAGE_KEY_TEAM_COUNT);
+
+  if (savedTeamCount) {
+    teamCountInput.value = savedTeamCount;
+  }
 
   if (savedCustom) {
     try {

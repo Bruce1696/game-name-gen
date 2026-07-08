@@ -98,6 +98,47 @@
             font-size: 0.95rem;
         }
 
+        .team-count-wrapper {
+            background: #ffffff;
+            border: 2px solid #ecf0f1;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+        }
+
+        .team-count-wrapper:hover {
+            border-color: #bdc3c7;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .team-count-wrapper label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #34495e;
+            font-size: 0.95rem;
+        }
+
+        .team-count-wrapper input[type="number"] {
+            width: 100%;
+            max-width: 150px;
+            background: #ffffff;
+            border: 1px solid #bdc3c7;
+            border-radius: 10px;
+            color: #2c3e50;
+            padding: 12px 15px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: all 0.3s ease;
+        }
+
+        .team-count-wrapper input[type="number"]:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
         .add-player-row {
             display: flex;
             gap: 10px;
@@ -298,8 +339,9 @@
         }
 
         .team-card {
+            --team-color: #3498db;
             background: #ffffff;
-            border: 2px solid #ecf0f1;
+            border: 2px solid var(--team-color);
             border-radius: 15px;
             padding: 30px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
@@ -307,16 +349,6 @@
             transform: translateY(20px);
             opacity: 0;
             animation: slideUp 0.6s ease-out forwards;
-        }
-
-        .team-card:nth-child(1) {
-            animation-delay: 0.1s;
-            border-color: #3498db;
-        }
-
-        .team-card:nth-child(2) {
-            animation-delay: 0.2s;
-            border-color: #e74c3c;
         }
 
         .team-card:hover {
@@ -337,18 +369,10 @@
             animation: bounce 2s infinite;
         }
 
-        .team-card:nth-child(2) .team-icon {
-            animation-delay: 0.5s;
-        }
-
         .team-name {
             font-size: 2rem;
             font-weight: 700;
-            color: #3498db;
-        }
-
-        .team-card:nth-child(2) .team-name {
-            color: #e74c3c;
+            color: var(--team-color);
         }
 
         .team-count {
@@ -362,18 +386,13 @@
             margin-top: 8px;
         }
 
-        .team-card:nth-child(2) .team-count {
-            background: #fadbd8;
-            color: #c0392b;
-        }
-
         .player-list {
             list-style: none;
         }
 
         .player-item {
             background: #f8f9fa;
-            border-left: 3px solid #3498db;
+            border-left: 3px solid var(--team-color);
             padding: 12px 15px;
             margin-bottom: 10px;
             border-radius: 8px;
@@ -384,10 +403,6 @@
             cursor: grab;
             position: relative;
             color: #2c3e50;
-        }
-
-        .team-card:nth-child(2) .player-item {
-            border-left-color: #e74c3c;
         }
 
         .player-item:hover {
@@ -431,21 +446,10 @@
             transition: all 0.3s ease;
         }
 
-        .team-card:nth-child(2) .player-btn {
-            background: #ecf0f1;
-            border-color: #bdc3c7;
-            color: #34495e;
-        }
-
         .player-btn:hover {
-            background: #3498db;
+            background: var(--team-color);
             color: white;
-            border-color: #3498db;
-        }
-
-        .team-card:nth-child(2) .player-btn:hover {
-            background: #e74c3c;
-            border-color: #e74c3c;
+            border-color: var(--team-color);
         }
 
         /* ===== ACTION BUTTONS ===== */
@@ -629,6 +633,11 @@
                 <div class="player-count">
                     <span id="playerCountDisplay">0 players selected</span>
                 </div>
+            </div>
+
+            <div class="team-count-wrapper">
+                <label for="teamCountInput">Number of Teams</label>
+                <input type="number" id="teamCountInput" min="2" max="20" value="2" />
             </div>
         </div>
 
